@@ -10,31 +10,32 @@ import (
 type Notification struct {
 	*Unitpay
 
-	ID        uint32 // unitpayId
-	ProjectID uint32 // projectId
+	ID        string // unitpayId
+	ProjectID string // projectId
 	Method    string
 	Type      string // paymentType
 
 	Account       string
-	PayerValue    uint32
+	PayerValue    string
 	PayerCurrency string
-	OrderValue    uint32
+	OrderValue    string
 	OrderCurrency string
-	Profit        uint32
+	Profit        string
 
 	Phone    string
 	Operator string
 
 	ThreeDS        bool // 3ds
-	SubscriptionID uint32
+	SubscriptionID string
 	Test           bool
 	ErrorMessage   string
 	Date           string
+	Signature      string
 
 	params map[string]string
 }
 
-func (n *Notification) Signature() string {
+func (n *Notification) MakeSignature() string {
 	keys := make([]string, 0, len(n.params))
 	for k := range n.params {
 		keys = append(keys, k)
@@ -44,13 +45,20 @@ func (n *Notification) Signature() string {
 	arguments := make([]string, 0, len(n.params)+2)
 	arguments = append(arguments, n.Method)
 	for _, k := range keys {
+		if n.params[k] == "" {
+			continue
+		}
 		arguments = append(arguments, n.params[k])
 	}
 	arguments = append(arguments, n.Unitpay.PrivateKey)
 
+	argStr := strings.Join(arguments, "{up}")
+
 	hash := sha256.New()
-	return fmt.Sprintf(
-		"%x",
-		hash.Sum([]byte(strings.Join(arguments, "{up}"))),
-	)
+	hash.Write([]byte(argStr))
+	return fmt.Sprintf("%x", hash.Sum(nil))
+}
+
+func (n *Notification) IsValidSignature() bool {
+	return n.Signature == n.MakeSignature()
 }

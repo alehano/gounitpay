@@ -4,14 +4,11 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
-	"strconv"
 	"strings"
 )
 
 var (
 	ErrNoRequiredArguments = errors.New("not all required arguments were provided")
-	ErrBadArgumentFormat   = errors.New("bad argument format")
-	ErrBadSignature        = errors.New("bad signature")
 
 	requiredNotificationParams = []string{
 		"unitpayId", "projectId", "account", "orderSum", "orderCurrency",
@@ -40,7 +37,7 @@ func (un *Unitpay) NewPayment(parameters PaymentParameters) *Payment {
 	}
 }
 
-func (un *Unitpay) ParseNotification(method string, formParameters url.Values) (*Notification, error) {
+func (un *Unitpay) ParseNotification(formParameters url.Values) (*Notification, error) {
 	var keys []string
 	for k := range formParameters {
 		if len(k) >= 9 && strings.Contains(k, "params") {
@@ -53,7 +50,6 @@ func (un *Unitpay) ParseNotification(method string, formParameters url.Values) (
 		params[k] = formParameters[fmt.Sprintf("params[%s]", k)][0]
 	}
 
-
 	for _, v := range requiredNotificationParams {
 		_, ok := params[v]
 		if !ok {
@@ -61,66 +57,30 @@ func (un *Unitpay) ParseNotification(method string, formParameters url.Values) (
 		}
 	}
 
-	signature := params["signature"]
-
-	// Не участвуют в формировании подписи.
-	delete(params, "sign")
-	delete(params, "signature")
-
-	id, err := strconv.ParseUint(params["unitpayId"], 10, 32)
-	if err != nil {
-		return nil, fmt.Errorf("%w: unitpayId", ErrBadArgumentFormat)
-	}
-
-	projectId, err := strconv.ParseUint(params["projectId"], 10, 32)
-	if err != nil {
-		return nil, fmt.Errorf("%w: projectId", ErrBadArgumentFormat)
-	}
-
-	payerSum, err := strconv.ParseUint(params["payerSum"], 10, 32)
-	if err != nil {
-		return nil, fmt.Errorf("%w: payerSum", ErrBadArgumentFormat)
-	}
-
-	orderSum, err := strconv.ParseUint(params["orderSum"], 10, 32)
-	if err != nil {
-		return nil, fmt.Errorf("%w: orderSum", ErrBadArgumentFormat)
-	}
-
-	profit, err := strconv.ParseUint(params["profit"], 10, 32)
-	if err != nil {
-		return nil, fmt.Errorf("%w: profit", ErrBadArgumentFormat)
-	}
-
-	subscriptionID, err := strconv.ParseUint(params["subscriptionId"], 10, 32)
-	if err != nil {
-		return nil, fmt.Errorf("%w: subscriptionId", ErrBadArgumentFormat)
-	}
-
 	notification := &Notification{
 		Unitpay:        un,
-		ID:             uint32(id),
-		ProjectID:      uint32(projectId),
-		Method:         params["method"],
+		ID:             params["id"],
+		ProjectID:      params["projectId"],
+		Method:         formParameters.Get("method"),
 		Type:           params["paymentType"],
 		Account:        params["account"],
-		PayerValue:     uint32(payerSum),
+		PayerValue:     params["payerSum"],
 		PayerCurrency:  params["payerCurrency"],
-		OrderValue:     uint32(orderSum),
+		OrderValue:     params["orderSum"],
 		OrderCurrency:  params["orderCurrency"],
-		Profit:         uint32(profit),
+		Profit:         params["profit"],
 		Phone:          params["phone"],
 		Operator:       params["operator"],
 		ThreeDS:        params["3ds"] == "1",
-		SubscriptionID: uint32(subscriptionID),
+		SubscriptionID: params["subscriptionID"],
 		Test:           params["test"] == "1",
 		ErrorMessage:   params["errorMessage"],
 		Date:           params["date"],
+		Signature:      params["signature"],
 	}
 
-	if signature != notification.Signature() {
-		return nil, ErrBadSignature
-	}
+	delete(params, "signature")
+	notification.params = params
 
 	return notification, nil
 }

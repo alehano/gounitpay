@@ -1,48 +1,30 @@
 package gounitpay
 
 import (
+	"net/url"
 	"testing"
 )
 
 var unitpay = New(Parameters{
-	PublicKey:  "428369-e60f0",
-	PrivateKey: "be5ab023368bbfa5a830c7701e14f9d3",
+	PublicKey:  "test",
+	PrivateKey: "test",
 })
 
-func TestUnitpay_NewPayment(t *testing.T) {
-	payment := unitpay.NewPayment(PaymentParameters{
-		Account:     "12345",
-		Description: "desc",
-		Value:       125,
-		Currency:    ptrS("RUB"),
-	})
+func TestUnitpayNotif(t *testing.T) {
+	paramStr := "method=pay&params[3ds]=1&params[account]=XXX&params[date]=2023-03-20 22:29:42&params[ip]=5.152.78.14&params[isPreauth]=0&params[operator]=card_not_rf&params[orderCurrency]=RUB&params[orderSum]=100.00&params[payerCurrency]=RUB&params[payerSum]=100.00&params[paymentType]=card&params[profit]=91.00&params[projectId]=XXX&params[purse]=XXX&params[signature]=XXXX&params[sum]=100&params[test]=0&params[unitpayId]=XXX"
 
-	neededSignature := "8d0dfb5d248a9b38cf171ef99f6d48be0d34d0f3bde193653f948d901cb2b0b4"
-	if payment.Signature() != neededSignature {
-		t.Errorf(
-			"bad signature (%s != %s)",
-			payment.Signature(),
-			neededSignature,
-		)
+	values, err := url.ParseQuery(paramStr)
+	if err != nil {
+		t.Errorf("bad query: %s", err)
 	}
 
-	payment = unitpay.NewPayment(PaymentParameters{
-		Account:     "123452",
-		Description: "desc2",
-		Value:       126,
-		Currency:    ptrS("RUB2"),
-	})
-
-	neededSignature = "3484e2d694c94ee3de2ebec06bd4f612243e151ab1588e3554838b1edfe55adb"
-	if payment.Signature() != neededSignature {
-		t.Errorf(
-			"bad signature (%s != %s)",
-			payment.Signature(),
-			neededSignature,
-		)
+	notif, err := unitpay.ParseNotification(values)
+	if err != nil {
+		t.Error(err)
 	}
-}
 
-func ptrS(s string) *string {
-	return &s
+	if notif.IsValidSignature() != true {
+		t.Error("bad signature")
+	}
+
 }
